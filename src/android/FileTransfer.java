@@ -279,6 +279,7 @@ public class FileTransfer extends CordovaPlugin {
         final JSONObject headers = args.optJSONObject(8) == null ? params.optJSONObject("headers") : args.optJSONObject(8);
         final String objectId = args.getString(9);
         final String httpMethod = getArgument(args, 10, "POST");
+        final int timeout = args.optInt(11, 60);
 
         final CordovaResourceApi resourceApi = webView.getResourceApi();
 
@@ -331,6 +332,9 @@ public class FileTransfer extends CordovaPlugin {
                     //------------------ CLIENT REQUEST
                     // Open a HTTP connection to the URL based on protocol
                     conn = resourceApi.createHttpConnection(targetUri);
+
+                    // Client Timeout before returning a 'HTTP 408 Gateway Timeout'
+                    conn.setReadTimeout(timeout * 1000); // milliseconds
 
                     // Allow Inputs
                     conn.setDoInput(true);
@@ -664,6 +668,7 @@ public class FileTransfer extends CordovaPlugin {
 
         final String objectId = args.getString(3);
         final JSONObject headers = args.optJSONObject(4);
+        final int timeout = args.optInt(5, 60);
 
         final Uri sourceUri = resourceApi.remapUri(Uri.parse(source));
         int uriType = CordovaResourceApi.getUriType(sourceUri);
@@ -758,6 +763,10 @@ public class FileTransfer extends CordovaPlugin {
                         // connect to server
                         // Open a HTTP connection to the URL based on protocol
                         connection = resourceApi.createHttpConnection(sourceUri);
+
+                        // Client Timeout before returning a 'HTTP 408 Gateway Timeout'
+                        connection.setReadTimeout(timeout * 1000); // milliseconds
+
                         connection.setRequestMethod("GET");
 
                         // TODO: Make OkHttp use this CookieManager by default.
