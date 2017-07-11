@@ -40,7 +40,7 @@ typedef int CDVFileTransferDirection;
 extern NSString* const kOptionsKeyCookie;
 
 @interface CDVFileTransfer : CDVPlugin {}
-
+- (void)abort:(CDVInvokedUrlCommand*)command;
 - (void)upload:(CDVInvokedUrlCommand*)command;
 - (void)download:(CDVInvokedUrlCommand*)command;
 - (NSString*)escapePathComponentForUrlString:(NSString*)urlString;
