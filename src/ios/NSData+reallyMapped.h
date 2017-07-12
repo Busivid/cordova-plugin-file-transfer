@@ -11,5 +11,6 @@
 @interface NSData (reallyMapped)
 
 + (NSData *)dataWithContentsOfReallyMappedFile:(NSString *)path;
++ (NSData *)dataWithContentsOfReallyMappedFile:(NSString *)path offset:(long)offset length:(long)length;
 
 @end

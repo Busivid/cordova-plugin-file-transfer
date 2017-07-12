@@ -306,8 +306,11 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (void)fileDataForUploadCommand:(CDVInvokedUrlCommand*)command
 {
-    NSString* source = (NSString*)[command argumentAtIndex:0];
+    NSNumber* chunkSize = [command argumentAtIndex:13];
+    NSNumber* offset = [command argumentAtIndex:12];
     NSString* server = [command argumentAtIndex:1];
+    NSString* source = (NSString*)[command argumentAtIndex:0];
+    
     NSError* __autoreleasing err = nil;
 
     if ([source hasPrefix:@"data:"] && [source rangeOfString:@"base64"].location != NSNotFound) {
@@ -362,7 +365,9 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
         }
 
         // Memory map the file so that it can be read efficiently even if it is large.
-        NSData* fileData = [NSData dataWithContentsOfReallyMappedFile:filePath];
+        NSData* fileData = (chunkSize == nil || offset == nil)
+        	? [NSData dataWithContentsOfReallyMappedFile:filePath]
+        	: [NSData dataWithContentsOfReallyMappedFile:filePath offset:[offset longValue] length:[chunkSize longValue]];
         
         if (err != nil || fileData == nil) {
             NSLog(@"Error opening file %@: %@", source, err);
