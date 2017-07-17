@@ -104,6 +104,10 @@
         </config-file>
         <header-file src="src/ios/CDVFileTransfer.h" />
         <source-file src="src/ios/CDVFileTransfer.m" />
+        <header-file src="src/ios/NSData+reallyMapped.h" />
+        <source-file src="src/ios/NSData+reallyMapped.m" />
+        <header-file src="src/ios/NSObject+deallocBlock.h" />
+        <source-file src="src/ios/NSObject+deallocBlock.m" />
 
         <framework src="AssetsLibrary.framework" />
     </platform>
