@@ -293,7 +293,7 @@ public class FileTransfer extends CordovaPlugin {
         final String httpMethod = getArgument(args, 10, "POST");
         final int timeout = args.optInt(11, 60);
         final long offset = args.optLong(12, 0);
-        final long length = args.optLong(13, -1);
+        long length = args.optLong(13, -1);
 
         final CordovaResourceApi resourceApi = webView.getResourceApi();
 
