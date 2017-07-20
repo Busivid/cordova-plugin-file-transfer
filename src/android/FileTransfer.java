@@ -347,8 +347,8 @@ public class FileTransfer extends CordovaPlugin {
                 HttpURLConnection conn = null;
                 HostnameVerifier oldHostnameVerifier = null;
                 SSLSocketFactory oldSocketFactory = null;
-                int totalBytes = 0;
-                int fixedLength = -1;
+                long totalBytes = 0;
+                long fixedLength = -1;
                 try {
                     // Create return object
                     FileUploadResult result = new FileUploadResult();
