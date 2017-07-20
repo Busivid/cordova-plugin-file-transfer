@@ -293,7 +293,7 @@ public class FileTransfer extends CordovaPlugin {
         final String httpMethod = getArgument(args, 10, "POST");
         final int timeout = args.optInt(11, 60);
         final long offset = args.optLong(12, 0);
-        long length = args.optLong(13, -1);
+        final long length = args.optLong(13, -1);
 
         final CordovaResourceApi resourceApi = webView.getResourceApi();
 
@@ -347,6 +347,7 @@ public class FileTransfer extends CordovaPlugin {
                 HttpURLConnection conn = null;
                 HostnameVerifier oldHostnameVerifier = null;
                 SSLSocketFactory oldSocketFactory = null;
+                long bytesToUpload = length;
                 long totalBytes = 0;
                 long fixedLength = -1;
                 try {
@@ -437,18 +438,18 @@ public class FileTransfer extends CordovaPlugin {
                         if (offset > 0 && offset >= readResult.length)
                             throw new JSONException("offset is greater than source size");
 
-                        if (length == -1)
-                            length = readResult.length;
+                        if (bytesToUpload == -1)
+                            bytesToUpload = readResult.length;
 
-                        fixedLength = offset + length > readResult.length
+                        fixedLength = offset + bytesToUpload > readResult.length
                             ? readResult.length - offset
-                            : length;
+                            : bytesToUpload;
 
                         if (multipartFormUpload)
                             fixedLength += stringLength;
                         progress.setLengthComputable(true);
                         progress.setTotal(fixedLength);
-                    } else if (offset > 0 || length > -1) {
+                    } else if (offset > 0 || bytesToUpload > -1) {
                         throw new JSONException("offset and length are not supported for sources with an unknown size");
                     }
                     LOG.d(LOG_TAG, "Content Length: " + fixedLength);
