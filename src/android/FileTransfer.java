@@ -292,6 +292,8 @@ public class FileTransfer extends CordovaPlugin {
         final String objectId = args.getString(9);
         final String httpMethod = getArgument(args, 10, "POST");
         final int timeout = args.optInt(11, 60);
+        final long offset = args.optLong(12, 0);
+        final long length = args.optLong(13, -1);
 
         final CordovaResourceApi resourceApi = webView.getResourceApi();
 
@@ -304,6 +306,14 @@ public class FileTransfer extends CordovaPlugin {
         LOG.d(LOG_TAG, "headers: " + headers);
         LOG.d(LOG_TAG, "objectId: " + objectId);
         LOG.d(LOG_TAG, "httpMethod: " + httpMethod);
+        LOG.d(LOG_TAG, "offset: " + offset);
+        LOG.d(LOG_TAG, "length: " + length);
+
+        if (offset < 0)
+            throw new JSONException("offset must be greater than or equal to 0");
+
+        if (length < -1)
+            throw new JSONException("length must be greater than or equal to -1");
 
         final Uri targetUri = resourceApi.remapUri(Uri.parse(target));
 
@@ -424,11 +434,22 @@ public class FileTransfer extends CordovaPlugin {
 
                     int stringLength = beforeDataBytes.length + tailParamsBytes.length;
                     if (readResult.length >= 0) {
-                        fixedLength = (int)readResult.length;
+                        if (offset > 0 && offset >= readResult.length)
+                            throw new JSONException("offset is greater than source size");
+
+                        if (length == -1)
+                            length = readResult.length;
+
+                        fixedLength = offset + length > readResult.length
+                            ? readResult.length - offset
+                            : length;
+
                         if (multipartFormUpload)
                             fixedLength += stringLength;
                         progress.setLengthComputable(true);
                         progress.setTotal(fixedLength);
+                    } else if (offset > 0 || length > -1) {
+                        throw new JSONException("offset and length are not supported for sources with an unknown size");
                     }
                     LOG.d(LOG_TAG, "Content Length: " + fixedLength);
                     // setFixedLengthStreamingMode causes and OutOfMemoryException on pre-Froyo devices.
@@ -467,6 +488,9 @@ public class FileTransfer extends CordovaPlugin {
                             sendStream.write(beforeDataBytes);
                             totalBytes += beforeDataBytes.length;
                         }
+
+                        // seek input stream to offset
+                        readResult.inputStream.skip(offset);
 
                         // create a buffer of maximum size
                         int bytesAvailable = readResult.inputStream.available();
