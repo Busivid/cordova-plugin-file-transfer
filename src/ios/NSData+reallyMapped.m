@@ -36,9 +36,33 @@
     // mmap
     void *mappedFile;
     
-    // Length undefined. Map whole file.
-    if (length < 0) {
-        length = statbuf.st_size;
+    if (offset < 0) {
+        NSException* argumentException = [NSException
+                                    exceptionWithName:@"InvalidArgument"
+                                    reason:@"Offset must be greater than or equal to 0"
+                                    userInfo:nil];
+        @throw argumentException;
+    }
+    
+    if (length < -1) {
+        NSException* argumentException = [NSException
+                                    exceptionWithName:@"InvalidArgument"
+                                    reason:@"Length must be 0 or greater or -1"
+                                    userInfo:nil];
+        @throw argumentException;
+    }
+    
+    if (offset > statbuf.st_size) {
+        NSException* argumentException = [NSException
+                                    exceptionWithName:@"InvalidArgument"
+                                    reason:@"Offset exceeds the file size"
+                                    userInfo:nil];
+        @throw argumentException;
+    }
+    
+    // Length undefined. Map the rest of the file.
+    if (length == -1) {
+        length = statbuf.st_size - offset;
     }
     
     // Byte range would exceed the end of the file.

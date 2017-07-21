@@ -308,8 +308,8 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (void)fileDataForUploadCommand:(CDVInvokedUrlCommand*)command
 {
-    NSNumber* chunkSize = [command argumentAtIndex:13];
-    NSNumber* offset = [command argumentAtIndex:12];
+    NSNumber* length = [command argumentAtIndex:13 withDefault:@-1];
+    NSNumber* offset = [command argumentAtIndex:12 withDefault:@0];
     NSString* server = [command argumentAtIndex:1];
     NSString* source = (NSString*)[command argumentAtIndex:0];
     
@@ -366,17 +366,20 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
             return;
         }
 
-        // Memory map the file so that it can be read efficiently even if it is large.
-        NSData* fileData = (chunkSize == nil || offset == nil)
-        	? [NSData dataWithContentsOfReallyMappedFile:filePath]
-        	: [NSData dataWithContentsOfReallyMappedFile:filePath offset:[offset longValue] length:[chunkSize longValue]];
-        
-        if (err != nil || fileData == nil) {
-            NSLog(@"Error opening file %@: %@", source, err);
-            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self createFileTransferError:NOT_FOUND_ERR AndSource:source AndTarget:server]];
+        @try {
+        	// Memory map the file so that it can be read efficiently even if it is large.
+        	NSData* fileData = [NSData dataWithContentsOfReallyMappedFile:filePath offset:[offset longValue] length:[length longValue]];
+            if (err != nil || fileData == nil) {
+                NSLog(@"Error opening file %@: %@", source, err);
+                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self createFileTransferError:NOT_FOUND_ERR AndSource:source AndTarget:server]];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            } else {
+                [self uploadData:fileData command:command];
+            }
+        }
+        @catch (NSException *exception) {
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[exception reason]];
             [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-        } else {
-            [self uploadData:fileData command:command];
         }
     }
 }
