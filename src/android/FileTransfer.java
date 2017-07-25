@@ -349,6 +349,7 @@ public class FileTransfer extends CordovaPlugin {
                 SSLSocketFactory oldSocketFactory = null;
                 long bytesToUpload = length;
                 long totalBytes = 0;
+                long fileBytesRead = 0;
                 long fixedLength = -1;
                 try {
                     // Create return object
@@ -494,12 +495,16 @@ public class FileTransfer extends CordovaPlugin {
                         readResult.inputStream.skip(offset);
 
                         // create a buffer of maximum size
-                        int bytesAvailable = readResult.inputStream.available();
-                        int bufferSize = Math.min(bytesAvailable, MAX_BUFFER_SIZE);
+                        long bytesAvailable = readResult.inputStream.available();
+                        if (bytesAvailable > bytesToUpload - fileBytesRead)
+                            bytesAvailable = bytesToUpload - fileBytesRead;
+
+                        int bufferSize = (int)Math.min(bytesAvailable, MAX_BUFFER_SIZE);
                         byte[] buffer = new byte[bufferSize];
 
                         // read file and write it into form...
                         int bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                        fileBytesRead += bytesRead;
 
                         long prevBytesRead = 0;
                         while (bytesRead > 0) {
@@ -511,8 +516,13 @@ public class FileTransfer extends CordovaPlugin {
                                 LOG.d(LOG_TAG, "Uploaded " + totalBytes + " of " + fixedLength + " bytes");
                             }
                             bytesAvailable = readResult.inputStream.available();
-                            bufferSize = Math.min(bytesAvailable, MAX_BUFFER_SIZE);
+                            if (bytesAvailable > bytesToUpload - fileBytesRead)
+                                bytesAvailable = bytesToUpload - fileBytesRead;
+
+                            bufferSize = (int)Math.min(bytesAvailable, MAX_BUFFER_SIZE);
+
                             bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                            fileBytesRead += bytesRead;
 
                             // Send a progress event.
                             progress.setLoaded(totalBytes);
