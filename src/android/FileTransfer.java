@@ -280,6 +280,8 @@ public class FileTransfer extends CordovaPlugin {
         final String objectId = args.getString(9);
         final String httpMethod = getArgument(args, 10, "POST");
         final int timeout = args.optInt(11, 60);
+        final long offset = args.optLong(12, 0);
+        final long length = args.optLong(13, -1);
 
         final CordovaResourceApi resourceApi = webView.getResourceApi();
 
@@ -291,6 +293,14 @@ public class FileTransfer extends CordovaPlugin {
         LOG.d(LOG_TAG, "headers: " + headers);
         LOG.d(LOG_TAG, "objectId: " + objectId);
         LOG.d(LOG_TAG, "httpMethod: " + httpMethod);
+        LOG.d(LOG_TAG, "offset: " + offset);
+        LOG.d(LOG_TAG, "length: " + length);
+
+        if (offset < 0)
+            throw new JSONException("offset must be greater than or equal to 0");
+
+        if (length < -1)
+            throw new JSONException("length must be greater than or equal to -1");
 
         final Uri targetUri = resourceApi.remapUri(Uri.parse(target));
 
@@ -322,8 +332,10 @@ public class FileTransfer extends CordovaPlugin {
                         tmpSrc.getScheme() != null ? tmpSrc : Uri.fromFile(new File(source)));
 
                 HttpURLConnection conn = null;
-                int totalBytes = 0;
-                int fixedLength = -1;
+                long bytesToUpload = length;
+                long totalBytes = 0;
+                long fileBytesRead = 0;
+                long fixedLength = -1;
                 try {
                     // Create return object
                     FileUploadResult result = new FileUploadResult();
@@ -400,11 +412,22 @@ public class FileTransfer extends CordovaPlugin {
 
                     int stringLength = beforeDataBytes.length + tailParamsBytes.length;
                     if (readResult.length >= 0) {
-                        fixedLength = (int)readResult.length;
+                        if (offset > 0 && offset >= readResult.length)
+                            throw new JSONException("offset is greater than source size");
+
+                        if (bytesToUpload == -1)
+                            bytesToUpload = readResult.length;
+
+                        fixedLength = offset + bytesToUpload > readResult.length
+                            ? readResult.length - offset
+                            : bytesToUpload;
+
                         if (multipartFormUpload)
                             fixedLength += stringLength;
                         progress.setLengthComputable(true);
                         progress.setTotal(fixedLength);
+                    } else if (offset > 0 || bytesToUpload > -1) {
+                        throw new JSONException("offset and length are not supported for sources with an unknown size");
                     }
                     LOG.d(LOG_TAG, "Content Length: " + fixedLength);
                     // setFixedLengthStreamingMode causes and OutOfMemoryException on pre-Froyo devices.
@@ -444,13 +467,20 @@ public class FileTransfer extends CordovaPlugin {
                             totalBytes += beforeDataBytes.length;
                         }
 
+                        // seek input stream to offset
+                        readResult.inputStream.skip(offset);
+
                         // create a buffer of maximum size
-                        int bytesAvailable = readResult.inputStream.available();
-                        int bufferSize = Math.min(bytesAvailable, MAX_BUFFER_SIZE);
+                        long bytesAvailable = readResult.inputStream.available();
+                        if (bytesAvailable > bytesToUpload - fileBytesRead)
+                            bytesAvailable = bytesToUpload - fileBytesRead;
+
+                        int bufferSize = (int)Math.min(bytesAvailable, MAX_BUFFER_SIZE);
                         byte[] buffer = new byte[bufferSize];
 
                         // read file and write it into form...
                         int bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                        fileBytesRead += bytesRead;
 
                         long prevBytesRead = 0;
                         while (bytesRead > 0) {
@@ -462,8 +492,13 @@ public class FileTransfer extends CordovaPlugin {
                                 LOG.d(LOG_TAG, "Uploaded " + totalBytes + " of " + fixedLength + " bytes");
                             }
                             bytesAvailable = readResult.inputStream.available();
-                            bufferSize = Math.min(bytesAvailable, MAX_BUFFER_SIZE);
+                            if (bytesAvailable > bytesToUpload - fileBytesRead)
+                                bytesAvailable = bytesToUpload - fileBytesRead;
+
+                            bufferSize = (int)Math.min(bytesAvailable, MAX_BUFFER_SIZE);
+
                             bytesRead = readResult.inputStream.read(buffer, 0, bufferSize);
+                            fileBytesRead += bytesRead;
 
                             // Send a progress event.
                             progress.setLoaded(totalBytes);

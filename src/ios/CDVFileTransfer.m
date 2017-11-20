@@ -20,6 +20,7 @@
 #import <Cordova/CDV.h>
 #import "CDVFileTransfer.h"
 #import "CDVLocalFilesystem.h"
+#import "NSData+reallyMapped.h"
 
 #import <AssetsLibrary/ALAsset.h>
 #import <AssetsLibrary/ALAssetRepresentation.h>
@@ -308,6 +309,8 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 {
     NSString* source = (NSString*)[command argumentAtIndex:0];
     NSString* server = [command argumentAtIndex:1];
+    NSNumber* offset = [command argumentAtIndex:12 withDefault:@0];
+    NSNumber* length = [command argumentAtIndex:13 withDefault:@-1];
     NSError* __autoreleasing err = nil;
 
     if ([source hasPrefix:@"data:"] && [source rangeOfString:@"base64"].location != NSNotFound) {
@@ -361,15 +364,20 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
             return;
         }
 
-        // Memory map the file so that it can be read efficiently even if it is large.
-        NSData* fileData = [NSData dataWithContentsOfFile:filePath options:NSDataReadingMappedIfSafe error:&err];
-
-        if (err != nil) {
-            NSLog(@"Error opening file %@: %@", source, err);
-            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self createFileTransferError:NOT_FOUND_ERR AndSource:source AndTarget:server]];
+        @try {
+            // Memory map the file so that it can be read efficiently even if it is large.
+            NSData* fileData = [NSData dataWithContentsOfReallyMappedFile:filePath offset:[offset longValue] length:[length longValue]];
+            if (err != nil || fileData == nil) {
+                NSLog(@"Error opening file %@: %@", source, err);
+                CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self createFileTransferError:NOT_FOUND_ERR AndSource:source AndTarget:server]];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            } else {
+                [self uploadData:fileData command:command];
+            }
+        }
+        @catch (NSException *exception) {
+            CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[exception reason]];
             [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-        } else {
-            [self uploadData:fileData command:command];
         }
     }
 }
